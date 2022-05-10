@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/IArenas.sol";
 
-contract MetaArenas is
+contract MetaArenasV2 is
     Initializable,
     ERC721Upgradeable,
     OwnableUpgradeable,
@@ -663,5 +663,10 @@ contract MetaArenas is
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    // Test function
+    function test() external pure returns (string memory) {
+        return ("test succesful!");
     }
 }
