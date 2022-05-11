@@ -13,6 +13,8 @@ from brownie import (
 import brownie
 from scripts.helpful_scripts import encode_function_data, upgrade
 
+### This test is deprecated. Smart Contracts were updated and other tests must be conducted ###
+
 
 def test_main():
     # Deloy
