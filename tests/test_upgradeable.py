@@ -64,29 +64,8 @@ def test_main():
         meta_arenas.transferFrom(owner.address, accounts[1].address, 1, {"from": owner})
     # Forward in time one level
     chain.mine(blocks=100, timedelta=259200)
-    # Assert accumulation of rewards and level
-    arena_stake_info = meta_arenas.availableRewards(1, {"from": owner})
-    print(arena_stake_info)
-    esport_rewards = arena_stake_info[0]
-    byte_rewards = arena_stake_info[1]
-    arena_details = meta_arenas.arenaDetails(1, {"from": owner})
-    print(arena_details)
     # Forward in time to get to level required for Tier 1 upgrade
     chain.mine(blocks=100, timedelta=259200 * 10)
-    # Assert accumulation of rewards and level
-    arena_stake_info = meta_arenas.availableRewards(1, {"from": owner})
-    print(arena_stake_info)
-    approve_esport = esport.approve(
-        meta_arenas.address, 100 * 10 ** 18, {"from": owner}
-    )
-    approve_byte = byte.approve(meta_arenas.address, 200 * 10 ** 18, {"from": owner})
-    # Assert tier upgrade
-    upgrade_tier = meta_arenas.upgradeArenaTier(1, {"from": owner})
-    arena_details = meta_arenas.arenaDetails(1, {"from": owner})
-    assert arena_details[0] == 1
-    print(arena_details)
-    with brownie.reverts():
-        meta_arenas.upgradeArenaTier(1, {"from": owner})
     # Stake another Arena
     approve_burn_tx = old_arenas.approve(meta_arenas.address, 1, {"from": owner})
     migrate_tx = meta_arenas.migrateArena(1, {"from": owner})
@@ -179,8 +158,6 @@ def test_main():
     meta_arenas.mint(1, {"from": accounts[1]})
     meta_arenas.mint(1, {"from": accounts[2]})
     # Assert minting logic
-    total_supply = meta_arenas.totalSupply({"from": owner})
-    assert total_supply == 1005
     owner_of_1001 = meta_arenas.ownerOf(1001, {"from": owner})
     owner_of_1002 = meta_arenas.ownerOf(1002, {"from": owner})
     owner_of_1004 = meta_arenas.ownerOf(1004, {"from": owner})
