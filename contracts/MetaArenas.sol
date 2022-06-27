@@ -84,9 +84,6 @@ contract MetaArenas is
     // The time a Arena has to be staked for it's Tier to be upgraded
     uint256 private timeToLevelUp;
 
-    // Rewards multiplier per tier
-    uint256 public tierMultiplier;
-
     // User arenas staked
     mapping(address => uint256[]) userArenasStaked;
 
@@ -145,7 +142,7 @@ contract MetaArenas is
         levelsToUpgrade[1] = 30;
         levelsToUpgrade[2] = 60;
         levelsToUpgrade[3] = 100;
-        // Tier rewards multipliers have 2 decimal
+        // Tier rewards multipliers have 1 decimal
         tierRewardsMultiplier[0] = 10;
         tierRewardsMultiplier[1] = 20;
         tierRewardsMultiplier[2] = 35;
@@ -156,7 +153,6 @@ contract MetaArenas is
         rarityRewardsPerDay[3] = (35 * 10**18) / 10;
         rarityRewardsPerDay[4] = (50 * 10**18) / 10;
         timeToLevelUp = 259200;
-        tierMultiplier = 2;
         supply = 1000;
         paused = true;
         // Mint Arenas 118, 188 and 216 to owner.(A mistake was made in the previous SC
