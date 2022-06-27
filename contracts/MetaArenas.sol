@@ -154,7 +154,7 @@ contract MetaArenas is
         rarityRewardsPerDay[1] = (15 * 10**18) / 10;
         rarityRewardsPerDay[2] = (20 * 10**18) / 10;
         rarityRewardsPerDay[3] = (35 * 10**18) / 10;
-        rarityRewardsPerDay[4] = (100 * 10**18) / 10;
+        rarityRewardsPerDay[4] = (50 * 10**18) / 10;
         timeToLevelUp = 259200;
         tierMultiplier = 2;
         supply = 1000;
