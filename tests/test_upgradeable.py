@@ -1,9 +1,8 @@
 from brownie import (
     Contract,
-    MetaArenas,
+    Metarenas,
     ArenasOld,
-    EsportToken,
-    ByteToken,
+    ArenaToken,
     MetaPasses,
     ProxyAdmin,
     TransparentUpgradeableProxy,
@@ -13,21 +12,18 @@ from brownie import (
 import brownie
 from scripts.helpful_scripts import encode_function_data, upgrade
 
-### This test is deprecated. Smart Contracts were updated and other tests must be conducted ###
-
 
 def test_main():
     # Deloy
     owner = accounts[0]
     # Deploy Proxi Admin
     proxy_admin = ProxyAdmin.deploy({"from": owner})
-    byte = ByteToken.deploy({"from": owner})
-    esport = EsportToken.deploy({"from": owner})
+    arena = ArenaToken.deploy({"from": owner})
     passes = MetaPasses.deploy({"from": owner})
     old_arenas = ArenasOld.deploy({"from": owner})
     old_arenas.mint(10, {"from": owner})
     # Deploy the first MetaArenas implementation
-    implementation = MetaArenas.deploy({"from": owner})
+    implementation = Metarenas.deploy({"from": owner})
     # Encode the initializa function
     encoded_initializer_function = encode_function_data(implementation.initialize)
     proxy = TransparentUpgradeableProxy.deploy(
@@ -37,10 +33,10 @@ def test_main():
         {"from": owner},
     )
     # Set Proxy ABI same as Implementation ABI
-    meta_arenas = Contract.from_abi("MetaArenas", proxy.address, MetaArenas.abi)
+    meta_arenas = Contract.from_abi("MetaArenas", proxy.address, Metarenas.abi)
     # Set the Address for interfaces in proxy
     meta_arenas.setInterfaces(
-        old_arenas.address, passes.address, esport.address, {"from": owner}
+        old_arenas.address, passes.address, arena.address, {"from": owner}
     )
     # Approve for Burn
     approve_burn_tx = old_arenas.approve(meta_arenas.address, 0, {"from": owner})
@@ -54,6 +50,9 @@ def test_main():
         == meta_arenas.ownerOf(216)
         == owner.address
     )
+    # Test tokensOfOwner
+    tokens_of_owner = meta_arenas.tokensOfOwner(owner.address, {"from": owner})
+    print(tokens_of_owner)
     # Stake Arena
     stake_tx = meta_arenas.stakeArena(1, {"from": owner})
     user_arenas_staked = meta_arenas.userStakedArenas(owner.address, {"from": owner})
@@ -64,8 +63,33 @@ def test_main():
         meta_arenas.transferFrom(owner.address, accounts[1].address, 1, {"from": owner})
     # Forward in time one level
     chain.mine(blocks=100, timedelta=259200)
+    # Assert accumulation of rewards and level
+    arena_stake_info = meta_arenas.availableRewards(1, {"from": owner})
+    print(arena_stake_info)
+    esport_rewards = arena_stake_info[0]
+    arena_details = meta_arenas.arenaDetails(1, {"from": owner})
+    print(arena_details)
+    assert esport_rewards >= ((259200 * 100000) / 3600)
+    assert arena_details[1] == 1
     # Forward in time to get to level required for Tier 1 upgrade
     chain.mine(blocks=100, timedelta=259200 * 10)
+    # Assert accumulation of rewards and level
+    arena_stake_info = meta_arenas.availableRewards(1, {"from": owner})
+    print(arena_stake_info)
+    esport_rewards = arena_stake_info[0]
+    arena_details = meta_arenas.arenaDetails(1, {"from": owner})
+    print(arena_details)
+    assert esport_rewards >= (((259200 * 10) * 100000) / 3600)
+    assert arena_details[1] == 11
+    # Set up arena tier upgrade
+    approve_esport = arena.approve(meta_arenas.address, 100 * 10 ** 18, {"from": owner})
+    # Assert tier upgrade
+    upgrade_tier = meta_arenas.upgradeArenaTier(1, {"from": owner})
+    arena_details = meta_arenas.arenaDetails(1, {"from": owner})
+    assert arena_details[0] == 1
+    print(arena_details)
+    with brownie.reverts():
+        meta_arenas.upgradeArenaTier(1, {"from": owner})
     # Stake another Arena
     approve_burn_tx = old_arenas.approve(meta_arenas.address, 1, {"from": owner})
     migrate_tx = meta_arenas.migrateArena(1, {"from": owner})
@@ -79,22 +103,16 @@ def test_main():
     print(user_arenas_staked)
     assert len(user_arenas_staked) == 1 and user_arenas_staked[0] == 2
     # Fund Arenas with Tokens
-    byte.transfer(meta_arenas.address, 1000 * 10 ** 18, {"from": owner})
-    esport.transfer(meta_arenas.address, 1000 * 10 ** 18, {"from": owner})
+    arena.transfer(meta_arenas.address, 1000 * 10 ** 18, {"from": owner})
     # Assert claim rewards
-    balance_byte_before = byte.balanceOf(owner.address, {"from": owner})
-    balance_esport_before = esport.balanceOf(owner.address, {"from": owner})
+    balance_esport_before = arena.balanceOf(owner.address, {"from": owner})
     available_rewards = meta_arenas.availableRewards(1, {"from": owner})
     print(available_rewards)
     claim_rewards = meta_arenas.claimRewards(1, {"from": owner})
     rewards = meta_arenas.availableRewards(1, {"from": owner})
-    # assert rewards[0] < 1000 and rewards[1] < 1000
-    balance_byte_after = byte.balanceOf(owner.address, {"from": owner})
-    balance_esport_after = esport.balanceOf(owner.address, {"from": owner})
-    assert (
-        balance_byte_after >= balance_byte_before + available_rewards[1]
-        and balance_esport_after >= balance_esport_before + available_rewards[0]
-    )
+    assert rewards[0] < 1000 and rewards[1] < 1000
+    balance_esport_after = arena.balanceOf(owner.address, {"from": owner})
+    assert balance_esport_after >= balance_esport_before + available_rewards[0]
     # Assert level reset on transfer
     arena_details = meta_arenas.arenaDetails(1, {"from": owner})
     assert arena_details[1] == 11
@@ -124,14 +142,14 @@ def test_main():
         {"from": owner},
     )
     # Fund accounts wiht ESPORT token
-    esport.mint({"from": accounts[1]})
-    esport.mint({"from": accounts[2]})
-    esport.mint({"from": accounts[3]})
+    arena.mint({"from": accounts[1]})
+    arena.mint({"from": accounts[2]})
+    arena.mint({"from": accounts[3]})
     # Approve ESPORT
-    esport.approve(meta_arenas.address, 1000 * 10 ** 18, {"from": owner})
-    esport.approve(meta_arenas.address, 1000 * 10 ** 18, {"from": accounts[1]})
-    esport.approve(meta_arenas.address, 1000 * 10 ** 18, {"from": accounts[2]})
-    esport.approve(meta_arenas.address, 1000 * 10 ** 18, {"from": accounts[3]})
+    arena.approve(meta_arenas.address, 1000 * 10 ** 18, {"from": owner})
+    arena.approve(meta_arenas.address, 1000 * 10 ** 18, {"from": accounts[1]})
+    arena.approve(meta_arenas.address, 1000 * 10 ** 18, {"from": accounts[2]})
+    arena.approve(meta_arenas.address, 1000 * 10 ** 18, {"from": accounts[3]})
     # Assert minting only for carbon owners
     print(passes.balanceOf(accounts[1].address, 0))
     with brownie.reverts():
@@ -140,10 +158,10 @@ def test_main():
     passes.mint(1, {"from": accounts[2]})
     passes.mint(2, {"from": accounts[3]})
     # Fund accounts wiht ESPORT token
-    esport.mint({"from": accounts[1]})
-    esport.mint({"from": accounts[2]})
-    esport.mint({"from": accounts[3]})
-    esport.mint({"from": accounts[3]})
+    arena.mint({"from": accounts[1]})
+    arena.mint({"from": accounts[2]})
+    arena.mint({"from": accounts[3]})
+    arena.mint({"from": accounts[3]})
     meta_arenas.mint(1, {"from": accounts[1]})
     with brownie.reverts():
         meta_arenas.mint(1, {"from": accounts[2]})
@@ -158,6 +176,8 @@ def test_main():
     meta_arenas.mint(1, {"from": accounts[1]})
     meta_arenas.mint(1, {"from": accounts[2]})
     # Assert minting logic
+    total_supply = meta_arenas.totalSupply({"from": owner})
+    assert total_supply == 10
     owner_of_1001 = meta_arenas.ownerOf(1001, {"from": owner})
     owner_of_1002 = meta_arenas.ownerOf(1002, {"from": owner})
     owner_of_1004 = meta_arenas.ownerOf(1004, {"from": owner})
@@ -190,21 +210,10 @@ def test_main():
     print(user_arenas_staked)
     assert len(user_arenas_staked) == 1 and user_arenas_staked[0] == 1002
     # Assert withdraw
-    meta_arenas.setByteToken(byte.address, {"from": owner})
-    balance_byte_before = byte.balanceOf(owner.address, {"from": owner})
-    balance_esport_before = esport.balanceOf(owner.address, {"from": owner})
+    balance_esport_before = arena.balanceOf(owner.address, {"from": owner})
     meta_arenas.withdraw(10000, 10000, {"from": owner})
-    balance_byte_after = byte.balanceOf(owner.address, {"from": owner})
-    balance_esport_after = esport.balanceOf(owner.address, {"from": owner})
-    assert (
-        balance_byte_after == balance_byte_before
-        and balance_esport_after == balance_esport_before + 10000
-    )
-    meta_arenas.setByteEnabled(True, {"from": owner})
+    balance_esport_after = arena.balanceOf(owner.address, {"from": owner})
+    assert balance_esport_after == balance_esport_before + 10000
     meta_arenas.withdraw(10000, 10000, {"from": owner})
-    balance_byte_after = byte.balanceOf(owner.address, {"from": owner})
-    balance_esport_after = esport.balanceOf(owner.address, {"from": owner})
-    assert (
-        balance_byte_after == balance_byte_before + 10000
-        and balance_esport_after == balance_esport_before + 20000
-    )
+    balance_esport_after = arena.balanceOf(owner.address, {"from": owner})
+    assert balance_esport_after == balance_esport_before + 20000
